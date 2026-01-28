@@ -1,1 +1,111 @@
 # Sign-language-tutor
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Sign Language Tutor</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header { background: #2c3e50; color: white; width: 100%; text-align: center; padding: 20px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .main-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; padding: 20px; max-width: 1200px; }
+        .camera-section { position: relative; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        video { transform: rotateY(180deg); border-radius: 10px; width: 640px; height: 480px; }
+        canvas { position: absolute; left: 15px; top: 15px; transform: rotateY(180deg); }
+        .info-card { background: white; padding: 25px; border-radius: 15px; width: 300px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .status-box { margin-top: 20px; padding: 15px; border-radius: 8px; font-weight: bold; text-align: center; background: #ecf0f1; border: 2px solid #bdc3c7; }
+        .detected { background: #d4edda; border-color: #28a745; color: #155724; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>SignBridge AI: Basic Learning Tool</h1>
+    <p>Real-time Hand Gesture Recognition</p>
+</div>
+
+<div class="main-container">
+    <div class="camera-section">
+        <video id="input_video"></video>
+        <canvas id="output_canvas" width="640" height="480"></canvas>
+    </div>
+
+    <div class="info-card">
+        <h3>How to use:</h3>
+        <ol>
+            <li>Allow camera access.</li>
+            <li>Place your hand in view.</li>
+            <li>The AI will draw a <b>Green Skeleton</b> when it sees your hand!</li>
+        </ol>
+        <div id="status" class="status-box">Waiting for Camera...</div>
+        <p style="margin-top:20px; font-size: 0.8em; color: #7f8c8d;">
+            <i>Note: This version detects hand shape coordinates to verify gestures.</i>
+        </p>
+    </div>
+</div>
+
+<script>
+    const videoElement = document.getElementById('input_video');
+    const canvasElement = document.getElementById('output_canvas');
+    const canvasCtx = canvasElement.getContext('2d');
+    const statusBox = document.getElementById('status');
+
+    function onResults(results) {
+        canvasCtx.save();
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+        
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            statusBox.innerText = "HAND DETECTED";
+            statusBox.classList.add('detected');
+            
+            for (const landmarks of results.multiHandLandmarks) {
+                // Draws the connections between knuckles
+                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 4});
+                // Draws the individual 21 dots
+                drawLandmarks(canvasCtx, landmarks, {color: '#FF0000', lineWidth: 1});
+            }
+        } else {
+            statusBox.innerText = "NO HAND DETECTED";
+            statusBox.classList.remove('detected');
+        }
+        canvasCtx.restore();
+    }
+
+    const hands = new Hands({
+        locateFile: (file) => https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}
+    });
+
+    hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+    });
+
+    hands.onResults(onResults);
+
+    const camera = new Camera(videoElement, {
+        onFrame: async () => {
+            await hands.send({image: videoElement});
+        },
+        width: 640,
+        height: 480
+    });
+    camera.start();
+</script>
+
+</body>
+</html>
